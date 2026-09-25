@@ -1,0 +1,45 @@
+# BUILDCACHE_USER
+# BUILDCACHE_PASS
+#   - rw access to buildcache.diffplug.com
+name: CI
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# least privilege by default; jobs opt in to more below
+permissions:
+  contents: read
+
+jobs:
+  sanity-check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: windows-latest
+          java: 21
+          arch: arm64
+          runner: windows-11-arm
+    name: Sanity Check
+    runs-on: ${{ matrix.runner }}
+    env:
+      # Only push to the remote build cache on push events to prevent cache pollution and poisoning from PRs.
+      buildcacheuser: ${{ github.event_name == 'push' && secrets.BUILDCACHE_USER
+        || '' }}
+      buildcachepass: ${{ github.event_name == 'push' && secrets.BUILDCACHE_PASS
+        || '' }}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - uses: actions/setup-java@v6
+      with:
+        distribution: "temurin"
+        java-version: ${{ matrix.java }}
+    - uses: gradle/actions/setup-gradle@v6
+    - run: ./gradlew spotlessCheck
+    - run: ./gradlew assemble testClasses publishToMavenLocal
+

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+  ],
+  packageRules: [
+    {
+      enabled: false,
+      matchFileNames: [
+        'gradle/pinned-libs.versions.toml',
+      ],
+    },
+    {
+      groupName: 'Ktlint',
+      matchPackageNames: [
+        'com.pinterest.ktlint:*',
+      ],
+    },
+    {
+      groupName: 'OpenRewrite',
+      matchPackageNames: [
+        'org.openrewrite.recipe:*',
+      ],
+    },
+  ],
+}

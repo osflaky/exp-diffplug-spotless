@@ -1,0 +1,84 @@
+/*
+ * Copyright 2021-2026 DiffPlug
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.diffplug.spotless.gherkin;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.Objects;
+
+import com.diffplug.spotless.FormatterFunc;
+import com.diffplug.spotless.FormatterStep;
+import com.diffplug.spotless.JarState;
+import com.diffplug.spotless.Provisioner;
+
+public final class GherkinUtilsStep implements Serializable {
+	@Serial
+	private static final long serialVersionUID = 1L;
+	private static final String MAVEN_COORDINATE = "io.cucumber:gherkin-utils:";
+	private static final String GHERKIN_MAVEN_COORDINATE = "io.cucumber:gherkin:";
+	public static final String NAME = "gherkinUtils";
+
+	private final JarState.Promised jarState;
+	private final GherkinUtilsConfig gherkinSimpleConfig;
+
+	private GherkinUtilsStep(JarState.Promised jarState, GherkinUtilsConfig gherkinSimpleConfig) {
+		this.jarState = jarState;
+		this.gherkinSimpleConfig = gherkinSimpleConfig;
+	}
+
+	public static String defaultVersion() {
+		return GherkinBuildConfig.VERSION_GHERKIN_UTILS;
+	}
+
+	public static FormatterStep create(GherkinUtilsConfig gherkinSimpleConfig,
+			String formatterVersion, Provisioner provisioner) {
+		Objects.requireNonNull(provisioner, "provisioner cannot be null");
+		List<String> coordinates = List.of(
+				MAVEN_COORDINATE + formatterVersion,
+				GHERKIN_MAVEN_COORDINATE + GherkinBuildConfig.VERSION_GHERKIN);
+		return FormatterStep.create(NAME,
+				new GherkinUtilsStep(JarState.promise(() -> JarState.from(coordinates, provisioner)), gherkinSimpleConfig),
+				GherkinUtilsStep::equalityState,
+				GherkinUtilsStep.State::toFormatter);
+	}
+
+	private State equalityState() {
+		return new State(jarState.get(), gherkinSimpleConfig);
+	}
+
+	private static final class State implements Serializable {
+		@Serial
+		private static final long serialVersionUID = 1L;
+
+		private final GherkinUtilsConfig gherkinSimpleConfig;
+		private final JarState jarState;
+
+		State(JarState jarState, GherkinUtilsConfig gherkinSimpleConfig) {
+			this.jarState = jarState;
+			this.gherkinSimpleConfig = gherkinSimpleConfig;
+		}
+
+		FormatterFunc toFormatter() throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
+				InstantiationException, IllegalAccessException {
+			Class<?> formatterFunc = jarState.getClassLoader().loadClass("com.diffplug.spotless.glue.gherkin.GherkinUtilsFormatterFunc");
+			Constructor<?> constructor = formatterFunc.getConstructor(GherkinUtilsConfig.class);
+			return (FormatterFunc) constructor.newInstance(gherkinSimpleConfig);
+		}
+	}
+}
